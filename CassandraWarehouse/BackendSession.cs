@@ -15,6 +15,8 @@ public class BackendSession
     private PreparedStatement insertWareStatement;
     private PreparedStatement insertReceivingStatement;
     private PreparedStatement getReceivingsStatement;
+    private PreparedStatement getReleasesStatement;
+    private PreparedStatement insertReleaseStatement;
 
     public BackendSession(string host, string keySpace)
     {
@@ -31,7 +33,9 @@ public class BackendSession
         incrStockStatement = session.Prepare("UPDATE stocks  SET quantity = quantity + ? where receiving = ? and ware = ?");
         decrStockStatement = session.Prepare("UPDATE stocks  SET quantity = quantity - ? where receiving = ? and ware = ?");
         insertReceivingStatement = session.Prepare("INSERT INTO receivings (id, number, date, client, positions) VALUES (?,?,?,?,?)");
+        insertReleaseStatement = session.Prepare("INSERT INTO releases (id, number, date, client, positions) VALUES (?,?,?,?,?)");
         getReceivingsStatement = session.Prepare("SELECT * FROM receivings");
+        getReleasesStatement = session.Prepare("SELECT * FROM releases");
     }
 
     public List<Ware> GetWares()
@@ -51,18 +55,28 @@ public class BackendSession
     {
         var statement = getStocksByWareStatement.Bind(wareId);
         RowSet rows = session.Execute(statement);
-        List<Stock> stocks = rows.Select(p => new Stock((Guid?)p[0], (Guid?)p[1], (long?)p[2])).ToList();
+        List<Stock> stocks = rows.Select(p => new Stock((Guid?)p[1], (Guid?)p[0], (long?)p[2])).ToList();
         return stocks;
     }
 
-    public void AddReceiving(string? number, DateTime date, string? client, Dictionary<Ware, long> positions)
+    public void AddReceiving(string? number, DateTime date, string? client, Dictionary<Ware, (long, double)> positions)
     {
         Guid receivingGuid = Guid.NewGuid();
-        List<Stock> stocks = positions.Select(p => new Stock(receivingGuid, p.Key.Id, p.Value)).ToList();
+        List<Stock> stocks = positions.Select(p => new Stock(receivingGuid, p.Key.Id, p.Value.Item1, p.Value.Item2)).ToList();
         var positionsJson = JsonSerializer.Serialize(stocks);
-        var recvStatement = insertReceivingStatement.Bind(receivingGuid, number, date, client, positionsJson);
+        var recvStatement = insertReceivingStatement.Bind(receivingGuid, number, date.ToLocalDate(), client, positionsJson);
         session.Execute(recvStatement);
         stocks.ForEach(p => addStock(p));
+    }
+
+    public void AddRelease(string? number, DateTime date, string? client, Dictionary<Stock, (long, double)> positions)
+    {
+        Guid releaseGuid = Guid.NewGuid();
+        List<Stock> stocks = positions.Select(p => new Stock(p.Key.Receiving, p.Key.Ware, p.Value.Item1, p.Value.Item2)).ToList();
+        var positionsJson = JsonSerializer.Serialize(stocks);
+        var relsStatement = insertReleaseStatement.Bind(releaseGuid, number, date.ToLocalDate(), client, positionsJson);
+        session.Execute(relsStatement);
+        stocks.ForEach(p => reduceStock(p));
     }
 
     private void addStock(Stock stock)
@@ -78,6 +92,12 @@ public class BackendSession
     private void addStock(Guid? receiving, Guid? wareId, long? quantity)
     {
         var statement = incrStockStatement.Bind(quantity, receiving, wareId);
+        session.Execute(statement);
+    }
+
+    private void reduceStock(Stock stock)
+    {
+        var statement = decrStockStatement.Bind(stock.Quantity, stock.Receiving, stock.Ware);
         session.Execute(statement);
     }
 
@@ -113,7 +133,7 @@ public class BackendSession
     {
         var statement = getReceivingsStatement.Bind();
         RowSet rows = session.Execute(statement);
-        List<Receiving> receivings = rows.Select(p => new Receiving((Guid?)p[1], (string?)p[3], (DateTimeOffset)p[0], (string?)p[2], (string?)p[4])).ToList();
+        List<Receiving> receivings = rows.Select(p => new Receiving((Guid?)p[1], (string?)p[3], (LocalDate)p[0], (string?)p[2], (string?)p[4])).ToList();
         return receivings;
     }
 }

@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 
 namespace CassandraWarehouse.Models
 {
-    public class Receiving
+    public class Release
     {
-        public Receiving(Guid? id, string? number, LocalDate date, string? client, string? positions)
+        public Release(Guid? id, string? number, LocalDate date, string? client, string? positions)
         {
             Id = id;
             Number = number;
