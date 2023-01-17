@@ -11,7 +11,6 @@ public class BackendSession
     private PreparedStatement getWaresStatement;
     private PreparedStatement incrStockStatement;
     private PreparedStatement decrStockStatement;
-    private PreparedStatement deleteStockStatement;
     private PreparedStatement deleteWareStatement;
     private PreparedStatement insertWareStatement;
     private PreparedStatement insertReceivingStatement;
@@ -34,18 +33,16 @@ public class BackendSession
             string result = reader.ReadToEnd();
             var queries = result.Split(';').Select(p => p.Trim()).Where(p => !String.IsNullOrEmpty(p));
             foreach(var query in queries) session.Execute(query);
-
         }
         //session.Execute(File.ReadAllText("warehouse table def.sql"));
         getStocksByWareStatement = session.Prepare("SELECT * FROM stocks WHERE ware=?");
         getWaresStatement = session.Prepare("SELECT * FROM wares");
         deleteWareStatement = session.Prepare("DELETE FROM wares where id=?");
-        deleteStockStatement = session.Prepare("DELETE FROM stocks where receiving=? and ware=?");
         insertWareStatement = session.Prepare("INSERT INTO wares (id, name) VALUES (?,?)");
-        incrStockStatement = session.Prepare("UPDATE stocks  SET quantity = quantity + ? where receiving = ? and ware = ?");
-        decrStockStatement = session.Prepare("UPDATE stocks  SET quantity = quantity - ? where receiving = ? and ware = ?");
-        insertReceivingStatement = session.Prepare("INSERT INTO receivings (id, number, date, client, positions) VALUES (?,?,?,?,?)");
-        insertReleaseStatement = session.Prepare("INSERT INTO releases (id, number, date, client, positions) VALUES (?,?,?,?,?)");
+        incrStockStatement = session.Prepare("UPDATE stocks  SET quantity = quantity + ? where receiving = ? and ware = ?").SetConsistencyLevel(ConsistencyLevel.Quorum);
+        decrStockStatement = session.Prepare("UPDATE stocks  SET quantity = quantity - ? where receiving = ? and ware = ?").SetConsistencyLevel(ConsistencyLevel.Quorum);
+        insertReceivingStatement = session.Prepare("INSERT INTO receivings (id, number, date, client, positions) VALUES (?,?,?,?,?)").SetConsistencyLevel(ConsistencyLevel.Quorum);
+        insertReleaseStatement = session.Prepare("INSERT INTO releases (id, number, date, client, positions) VALUES (?,?,?,?,?)").SetConsistencyLevel(ConsistencyLevel.Quorum);
         getReceivingsStatement = session.Prepare("SELECT * FROM receivings");
         getReleasesStatement = session.Prepare("SELECT * FROM releases");
     }
