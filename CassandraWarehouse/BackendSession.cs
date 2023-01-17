@@ -32,7 +32,9 @@ public class BackendSession
         using (StreamReader reader = new StreamReader(stream))
         {
             string result = reader.ReadToEnd();
-            session.Execute(result);
+            var queries = result.Split(';').Select(p => p.Trim()).Where(p => !String.IsNullOrEmpty(p));
+            foreach(var query in queries) session.Execute(query);
+
         }
         //session.Execute(File.ReadAllText("warehouse table def.sql"));
         getStocksByWareStatement = session.Prepare("SELECT * FROM stocks WHERE ware=?");
