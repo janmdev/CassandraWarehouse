@@ -21,8 +21,9 @@ public class BackendSession
     public BackendSession(string host, string keySpace)
     {
         var cluster = Cluster.Builder()
-                     .AddContactPoints(host)
+                     .AddContactPoints(host).WithQueryOptions(new QueryOptions().SetConsistencyLevel(ConsistencyLevel.Quorum))
                      .Build();
+        
         session = cluster.Connect(keySpace);
         getStocksByWareStatement = session.Prepare("SELECT * FROM stocks WHERE ware=?");
         getWaresStatement = session.Prepare("SELECT * FROM wares");
