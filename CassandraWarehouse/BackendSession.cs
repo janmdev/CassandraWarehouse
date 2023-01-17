@@ -116,17 +116,6 @@ public class BackendSession
         session.Execute(statement);
     }
 
-    public void DeleteStock(Stock stock)
-    {
-        DeleteStock(stock.Receiving, stock.Ware);
-    }
-
-    public void DeleteStock(Guid? stockId, Guid? wareId)
-    {
-        var statement = deleteStockStatement.Bind(stockId, wareId);
-        session.Execute(statement);
-    }
-
     public void DeleteWare(Ware ware)
     {
         DeleteWare(ware.Id);
