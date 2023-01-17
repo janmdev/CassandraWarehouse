@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using ConsoleTables;
 using CassandraWarehouse.Models;
 using System.Globalization;
+using System.Text.Json;
+using System.Collections;
 
 namespace WarehouseCL
 {
@@ -25,12 +27,11 @@ namespace WarehouseCL
                 "1 - wyświetl towary\n" +
                 "2 - wyświetl zasoby\n" +
                 "3 - wyświetl przyjęcia\n" +
-                "4 - dodaj towar\n" +
-                "5 - dodaj przyjęcie\n" +
-                "6 - dodaj wydanie\n" +
-                "7 - usuń przyjęcie\n" +
-                "8 - usuń wydania\n" +
-                "9 - usuń kontrahenta\n" +
+                "4 - wyświetl wydania\n" +
+                "5 - dodaj towar\n" +
+                "6 - dodaj przyjęcie\n" +
+                "7 - dodaj wydanie\n" +
+                "8 - usuń towar\n" +
                 "q - wyjdź");
         }
 
@@ -53,15 +54,66 @@ namespace WarehouseCL
                         showReceivings();
                         break;
                     case "4":
-                        addWare();
+                        showReleases();
                         break;
                     case "5":
-                        addReceiving();
+                        addWare();
                         break;
                     case "6":
+                        addReceiving();
+                        break;
+                    case "7":
                         addRelease();
                         break;
+                    case "8":
+                        deleteWare();
+                        break;
                 }
+            }
+        }
+
+        private void showReleases()
+        {
+            var releases = session.GetReleases();
+            ConsoleTable table = new ConsoleTable("lp","id", "numer", "data", "klient");
+            releases.ForEach(p => table.AddRow("[" + releases.IndexOf(p) + "] ", p.Id, p.Number, p.Date.ToString(), p.Client));
+            table.Write(Format.Minimal);
+            Console.WriteLine($"Wybierz wydanie: [0-{releases.Count - 1}]");
+            if(int.TryParse(Console.ReadLine(), out int releaseInd))
+            {
+                if(releaseInd < 0 || releaseInd >= releases.Count)
+                {
+                    Console.WriteLine("Błędny numer wydania");
+                    return;
+                }
+                var release = releases[releaseInd];
+                var positions = JsonSerializer.Deserialize<List<Stock>>(release.Positions);
+                var stocksTable = new ConsoleTable("lp", "przyjecie", "towar", "ilosc", "cena");
+                positions.ForEach(p => stocksTable.AddRow("[" + positions.IndexOf(p) + "] ", p.Receiving, p.Ware, p.Quantity, p.Price));
+                stocksTable.Write(Format.Minimal);
+            }
+        }
+
+        private void deleteWare()
+        {
+            var wares = session.GetWares();
+            var table = new ConsoleTable("lp", "uuid", "nazwa");
+            wares.ForEach(w => table.AddRow("[" + wares.IndexOf(w) + "] ", w.Id, w.Name));
+            table.Write(Format.Minimal);
+            Console.WriteLine($"Wybierz towar: (0-{wares.Count - 1}):");
+            if(int.TryParse(Console.ReadLine(), out int wareInd))
+            {
+                if(wareInd >= wares.Count || wareInd < 0)
+                {
+                    Console.WriteLine("Błędny numer towaru");
+                    return;
+                }
+                session.DeleteWare(wares[wareInd]);
+            }
+            else
+            {
+                Console.WriteLine("Błędny numer towaru");
+                return;
             }
         }
 
@@ -81,7 +133,7 @@ namespace WarehouseCL
             string receivingClient = Console.ReadLine();
             var wares = session.GetWares();
             string wybor = "";
-            var table = new ConsoleTable("no.", "uuid", "nazwa");
+            var table = new ConsoleTable("lp", "uuid", "nazwa");
             wares.ForEach(w => table.AddRow("[" + wares.IndexOf(w) + "] ", w.Id, w.Name));
             Dictionary<Stock, (long, double)> positions = new Dictionary<Stock, (long, double)>();
             while (wybor != "q")
@@ -91,7 +143,7 @@ namespace WarehouseCL
                 wybor = Console.ReadLine().ToLower().Trim();
                 if (int.TryParse(wybor, out int wareInd))
                 {
-                    if (wareInd > wares.Count - 1)
+                    if (wareInd >= wares.Count || wareInd < 0)
                     {
                         Console.WriteLine("Błędny numer towaru");
                         return;
@@ -158,9 +210,23 @@ namespace WarehouseCL
         private void showReceivings()
         {
             var receivings = session.GetReceivings();
-            ConsoleTable table = new ConsoleTable("id", "numer", "data", "klient", "pozycje");
-            receivings.ForEach(p => table.AddRow(p.Id, p.Number, p.Date.ToString(), p.Client, p.Positions));
+            ConsoleTable table = new ConsoleTable("lp", "id", "numer", "data", "klient");
+            receivings.ForEach(p => table.AddRow("[" + receivings.IndexOf(p) + "] ", p.Id, p.Number, p.Date.ToString(), p.Client));
             table.Write(Format.Minimal);
+            Console.WriteLine($"Wybierz przyjecie: [0-{receivings.Count - 1}]");
+            if (int.TryParse(Console.ReadLine(), out int releaseInd))
+            {
+                if (releaseInd < 0 || releaseInd >= receivings.Count)
+                {
+                    Console.WriteLine("Błędny numer wydania");
+                    return;
+                }
+                var receiving = receivings[releaseInd];
+                var positions = JsonSerializer.Deserialize<List<Stock>>(receiving.Positions);
+                var stocksTable = new ConsoleTable("lp.", "przyjecie", "towar", "ilosc", "cena");
+                positions.ForEach(p => stocksTable.AddRow("[" + positions.IndexOf(p) + "] ", p.Receiving, p.Ware, p.Quantity, p.Price));
+                stocksTable.Write(Format.Minimal);
+            }
         }
 
         private void addReceiving()
@@ -179,7 +245,7 @@ namespace WarehouseCL
             string receivingClient = Console.ReadLine();
             var wares = session.GetWares();
             string wybor = "";
-            var table = new ConsoleTable("no.", "uuid", "nazwa");
+            var table = new ConsoleTable("lp", "uuid", "nazwa");
             wares.ForEach(w => table.AddRow("[" + wares.IndexOf(w) + "] ", w.Id, w.Name));
             table.Write(Format.Minimal);
             Dictionary<Ware, (long, double)> positions = new Dictionary<Ware, (long, double)>();
@@ -245,7 +311,7 @@ namespace WarehouseCL
         private void showWares()
         {
             var wares = session.GetWares();
-            var table = new ConsoleTable("no.", "uuid", "nazwa");
+            var table = new ConsoleTable("lp", "uuid", "nazwa");
             wares.ForEach(w => table.AddRow("[" + wares.IndexOf(w) + "] ", w.Id, w.Name));
             table.Write(Format.Minimal);
         }
@@ -253,7 +319,7 @@ namespace WarehouseCL
         private void showStocks()
         {
             var wares = session.GetWares();
-            var waresTable = new ConsoleTable("no.", "uuid", "nazwa");
+            var waresTable = new ConsoleTable("lp", "uuid", "nazwa");
             wares.ForEach(w => waresTable.AddRow("[" + wares.IndexOf(w) + "] ", w.Id, w.Name));
             waresTable.Write(Format.Minimal);
             Console.WriteLine();
@@ -273,7 +339,7 @@ namespace WarehouseCL
         private void showStocks(Ware ware)
         {
             var stocks = session.GetStocks(ware);
-            var stocksTable = new ConsoleTable("no.", "przyjecie", "towar", "ilosc");
+            var stocksTable = new ConsoleTable("lp", "przyjecie", "towar", "ilosc");
             stocks.ForEach(p => stocksTable.AddRow("[" + stocks.IndexOf(p) + "] ",p.Receiving, p.Ware, p.Quantity));
             stocksTable.Write(Format.Minimal);
         }

@@ -2,7 +2,11 @@
 using Cassandra;
 using CassandraWarehouse;
 using WarehouseCL;
+using System.Configuration;
 
-Menu menu = new Menu(new BackendSession("localhost", "warehouse"));
+
+Startup startup = new Startup();
+
+Menu menu = new Menu(new BackendSession(startup.CassSettings.Host, startup.CassSettings.KeySpace));
 
 menu.Run();

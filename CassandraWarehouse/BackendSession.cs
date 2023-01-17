@@ -29,7 +29,6 @@ public class BackendSession
         deleteWareStatement = session.Prepare("DELETE FROM wares where id=?");
         deleteStockStatement = session.Prepare("DELETE FROM stocks where receiving=? and ware=?");
         insertWareStatement = session.Prepare("INSERT INTO wares (id, name) VALUES (?,?)");
-        //insertStockStatement = session.Prepare("INSERT INTO stocks (id, ware, quantity) VALUES (?,?,?)");
         incrStockStatement = session.Prepare("UPDATE stocks  SET quantity = quantity + ? where receiving = ? and ware = ?");
         decrStockStatement = session.Prepare("UPDATE stocks  SET quantity = quantity - ? where receiving = ? and ware = ?");
         insertReceivingStatement = session.Prepare("INSERT INTO receivings (id, number, date, client, positions) VALUES (?,?,?,?,?)");
@@ -134,6 +133,14 @@ public class BackendSession
         var statement = getReceivingsStatement.Bind();
         RowSet rows = session.Execute(statement);
         List<Receiving> receivings = rows.Select(p => new Receiving((Guid?)p[1], (string?)p[3], (LocalDate)p[0], (string?)p[2], (string?)p[4])).ToList();
+        return receivings;
+    }
+
+    public List<Release> GetReleases()
+    {
+        var statement = getReleasesStatement.Bind();
+        RowSet rows = session.Execute(statement);
+        List<Release> receivings = rows.Select(p => new Release((Guid?)p[1], (string?)p[3], (LocalDate)p[0], (string?)p[2], (string?)p[4])).ToList();
         return receivings;
     }
 }
