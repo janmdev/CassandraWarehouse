@@ -1,5 +1,6 @@
 ﻿using Cassandra;
 using CassandraWarehouse.Models;
+using System.Reflection;
 using System.Text.Json;
 
 namespace CassandraWarehouse;
@@ -25,6 +26,15 @@ public class BackendSession
                      .Build();
         
         session = cluster.Connect(keySpace);
+        var assembly = Assembly.GetExecutingAssembly();
+        var resourceName = "CassandraWarehouse.warehouse table def.sql";
+        using (Stream stream = assembly.GetManifestResourceStream(resourceName))
+        using (StreamReader reader = new StreamReader(stream))
+        {
+            string result = reader.ReadToEnd();
+            session.Execute(result);
+        }
+        //session.Execute(File.ReadAllText("warehouse table def.sql"));
         getStocksByWareStatement = session.Prepare("SELECT * FROM stocks WHERE ware=?");
         getWaresStatement = session.Prepare("SELECT * FROM wares");
         deleteWareStatement = session.Prepare("DELETE FROM wares where id=?");

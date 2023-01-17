@@ -7,6 +7,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="warehouse table def.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="warehouse table def.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="CassandraCSharpDriver" Version="3.19.0" />
   </ItemGroup>
 
