@@ -8,6 +8,7 @@ public class BackendSession
 {
     private ISession session;
     private PreparedStatement getStocksByWareStatement;
+    private PreparedStatement getStocksStatement;
     private PreparedStatement getWaresStatement;
     private PreparedStatement incrStockStatement;
     private PreparedStatement decrStockStatement;
@@ -17,11 +18,12 @@ public class BackendSession
     private PreparedStatement getReceivingsStatement;
     private PreparedStatement getReleasesStatement;
     private PreparedStatement insertReleaseStatement;
+    private readonly ConsistencyLevel warehouseMoveConstLevel = ConsistencyLevel.One;
 
     public BackendSession(string host, string keySpace)
     {
         var cluster = Cluster.Builder()
-                     .AddContactPoints(host).WithQueryOptions(new QueryOptions().SetConsistencyLevel(ConsistencyLevel.Quorum))
+                     .AddContactPoints(host).WithQueryOptions(new QueryOptions().SetConsistencyLevel(ConsistencyLevel.One))
                      .Build();
         
         session = cluster.Connect(keySpace);
@@ -31,18 +33,19 @@ public class BackendSession
         using (StreamReader reader = new StreamReader(stream))
         {
             string result = reader.ReadToEnd();
-            var queries = result.Split(';').Select(p => p.Trim()).Where(p => !String.IsNullOrEmpty(p));
+            var queries = result.Split(';').Select(p => p.Trim().Replace("\r\n","")).Where(p => !String.IsNullOrEmpty(p));
             foreach(var query in queries) session.Execute(query);
         }
         //session.Execute(File.ReadAllText("warehouse table def.sql"));
         getStocksByWareStatement = session.Prepare("SELECT * FROM stocks WHERE ware=?");
+        getStocksStatement = session.Prepare("SELECT * FROM stocks");
         getWaresStatement = session.Prepare("SELECT * FROM wares");
         deleteWareStatement = session.Prepare("DELETE FROM wares where id=?");
-        insertWareStatement = session.Prepare("INSERT INTO wares (id, name) VALUES (?,?)");
-        incrStockStatement = session.Prepare("UPDATE stocks  SET quantity = quantity + ? where receiving = ? and ware = ?").SetConsistencyLevel(ConsistencyLevel.Quorum);
-        decrStockStatement = session.Prepare("UPDATE stocks  SET quantity = quantity - ? where receiving = ? and ware = ?").SetConsistencyLevel(ConsistencyLevel.Quorum);
-        insertReceivingStatement = session.Prepare("INSERT INTO receivings (id, number, date, client, positions) VALUES (?,?,?,?,?)").SetConsistencyLevel(ConsistencyLevel.Quorum);
-        insertReleaseStatement = session.Prepare("INSERT INTO releases (id, number, date, client, positions) VALUES (?,?,?,?,?)").SetConsistencyLevel(ConsistencyLevel.Quorum);
+        insertWareStatement = session.Prepare("INSERT INTO wares (id, name) VALUES (?,?)"); 
+        incrStockStatement = session.Prepare("UPDATE stocks  SET quantity = quantity + ? where receiving = ? and ware = ?").SetConsistencyLevel(warehouseMoveConstLevel);
+        decrStockStatement = session.Prepare("UPDATE stocks  SET quantity = quantity - ? where receiving = ? and ware = ?").SetConsistencyLevel(warehouseMoveConstLevel);
+        insertReceivingStatement = session.Prepare("INSERT INTO receivings (id, number, date, client, positions) VALUES (?,?,?,?,?)").SetConsistencyLevel(warehouseMoveConstLevel);
+        insertReleaseStatement = session.Prepare("INSERT INTO releases (id, number, date, client, positions) VALUES (?,?,?,?,?)").SetConsistencyLevel(warehouseMoveConstLevel);
         getReceivingsStatement = session.Prepare("SELECT * FROM receivings");
         getReleasesStatement = session.Prepare("SELECT * FROM releases");
     }
@@ -58,6 +61,14 @@ public class BackendSession
     public List<Stock> GetStocks(Ware ware)
     {
         return GetStocks(ware.Id);
+    }
+
+    public List<Stock> GetStocks()
+    {
+        var statement = getStocksStatement.Bind();
+        RowSet rows = session.Execute(statement);
+        List<Stock> stocks = rows.Select(p => new Stock((Guid?)p[1], (Guid?)p[0], (long?)p[2])).ToList();
+        return stocks;
     }
 
     public List<Stock> GetStocks(Guid? wareId)
