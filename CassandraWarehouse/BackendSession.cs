@@ -25,7 +25,6 @@ public class BackendSession
         var cluster = Cluster.Builder()
                      .AddContactPoints(host).WithQueryOptions(new QueryOptions().SetConsistencyLevel(ConsistencyLevel.One))
                      .Build();
-        
         session = cluster.Connect(keySpace);
         var assembly = Assembly.GetExecutingAssembly();
         var resourceName = "CassandraWarehouse.warehouse table def.sql";
@@ -36,7 +35,6 @@ public class BackendSession
             var queries = result.Split(';').Select(p => p.Trim().Replace("\r\n","")).Where(p => !String.IsNullOrEmpty(p));
             foreach(var query in queries) session.Execute(query);
         }
-        //session.Execute(File.ReadAllText("warehouse table def.sql"));
         getStocksByWareStatement = session.Prepare("SELECT * FROM stocks WHERE ware=?");
         getStocksStatement = session.Prepare("SELECT * FROM stocks");
         getWaresStatement = session.Prepare("SELECT * FROM wares");
